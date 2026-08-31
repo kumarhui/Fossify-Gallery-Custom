@@ -12,7 +12,7 @@ data class CustomToolsItem(
 enum class ToolId {
     ID_CARD,
     PASSPORT_PHOTO,
-    A4_LAYOUT,
+    JUGANUA,
     CONVERT_IMAGE,
     CONVERT_PDF,
     IMAGE_INFO,

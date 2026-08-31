@@ -2,19 +2,28 @@
 
 import android.app.Dialog
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
-import android.widget.EditText
+import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.fossify.gallery.customtools.layout.PassportPhotoLayoutEngine
+import org.fossify.gallery.customtools.passport.PassportBackground
+import org.fossify.gallery.customtools.passport.PassportPhotoProcessor
 import org.fossify.gallery.customtools.preview.ResultDialog
-import org.fossify.gallery.customtools.storage.DownloadStorageHelper
+import java.io.File
 import java.io.FileOutputStream
 
 object PassportPhotoConfigDialog {
@@ -23,121 +32,325 @@ object PassportPhotoConfigDialog {
         context: Context,
         imagePath: String
     ) {
-        val dialog = Dialog(context)
 
-        val root = LinearLayout(context).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(
-                dp(context, 20),
-                dp(context, 20),
-                dp(context, 20),
-                dp(context, 20)
-            )
+        val activity =
+            context as? FragmentActivity
+                ?: return
 
-            background = roundedBackground(
-                Color.WHITE,
-                dp(context, 24)
-            )
+        if (
+            activity.isFinishing ||
+            activity.isDestroyed
+        ) {
+            return
         }
 
-        val title = TextView(context).apply {
-            text = "Passport Photo"
-            textSize = 22f
-            setTextColor(Color.BLACK)
+        val dialog =
+            Dialog(context)
+
+        var selectedRows =
+            1
+
+        var selectedBg =
+            PassportBackground.SKY_BLUE
+
+        val root =
+            LinearLayout(context).apply {
+
+                orientation =
+                    LinearLayout.VERTICAL
+
+                setPadding(
+                    dp(context, 20),
+                    dp(context, 20),
+                    dp(context, 20),
+                    dp(context, 20)
+                )
+
+                background =
+                    roundedBackground(
+                        Color.WHITE,
+                        dp(context, 24)
+                    )
+            }
+
+        // ---------------------------------------------------------
+        // TITLE
+        // ---------------------------------------------------------
+
+        root.addView(
+            TextView(context).apply {
+
+                text =
+                    "Passport Photo"
+
+                textSize =
+                    22f
+
+                setTextColor(
+                    Color.BLACK
+                )
+            }
+        )
+
+        root.addView(
+            TextView(context).apply {
+
+                text =
+                    "30 × 40 mm  •  6 photos per row"
+
+                textSize =
+                    13f
+
+                setTextColor(
+                    Color.GRAY
+                )
+
+                setPadding(
+                    0,
+                    dp(context, 4),
+                    0,
+                    dp(context, 14)
+                )
+            }
+        )
+
+        // ---------------------------------------------------------
+        // ROW COUNT
+        // ---------------------------------------------------------
+
+        root.addView(
+            TextView(context).apply {
+
+                text =
+                    "Number of rows"
+
+                textSize =
+                    15f
+
+                setTextColor(
+                    Color.DKGRAY
+                )
+            }
+        )
+
+        val rowContainer =
+            LinearLayout(context).apply {
+
+                orientation =
+                    LinearLayout.HORIZONTAL
+
+                gravity =
+                    Gravity.CENTER
+            }
+
+        val rowButtons =
+            ArrayList<TextView>()
+
+        fun updateRowButtons() {
+
+            rowButtons.forEachIndexed {
+                index,
+                button ->
+
+                val selected =
+                    index + 1 ==
+                        selectedRows
+
+                button.setTextColor(
+                    if (selected)
+                        Color.WHITE
+                    else
+                        Color.DKGRAY
+                )
+
+                button.background =
+                    roundedBackground(
+                        if (selected)
+                            Color.rgb(
+                                55,
+                                95,
+                                220
+                            )
+                        else
+                            Color.rgb(
+                                240,
+                                240,
+                                240
+                            ),
+                        dp(context, 10)
+                    )
+            }
         }
-
-        root.addView(title)
-
-        val subtitle = TextView(context).apply {
-            text = "35 × 45 mm  •  A4 sheet"
-            textSize = 13f
-            setTextColor(Color.GRAY)
-            setPadding(
-                0,
-                dp(context, 4),
-                0,
-                dp(context, 18)
-            )
-        }
-
-        root.addView(subtitle)
-
-        val rowLabel = TextView(context).apply {
-            text = "Number of rows"
-            textSize = 15f
-            setTextColor(Color.DKGRAY)
-        }
-
-        root.addView(rowLabel)
-
-        val rowsContainer = LinearLayout(context).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-        }
-
-        var selectedRows = 1
-
-        val rowButtons = mutableListOf<TextView>()
 
         for (row in 1..6) {
 
-            val button = TextView(context).apply {
-                text = row.toString()
-                textSize = 16f
-                gravity = Gravity.CENTER
-                setTextColor(
-                    if (row == 1) Color.WHITE
-                    else Color.DKGRAY
-                )
+            val rowButton =
+                TextView(context).apply {
 
-                background = roundedBackground(
-                    if (row == 1)
-                        Color.rgb(55, 95, 220)
-                    else
-                        Color.rgb(240, 240, 240),
-                    dp(context, 12)
-                )
+                    text =
+                        row.toString()
 
-                setOnClickListener {
+                    textSize =
+                        16f
 
-                    selectedRows = row
+                    gravity =
+                        Gravity.CENTER
 
-                    rowButtons.forEachIndexed { index, item ->
+                    setOnClickListener {
 
-                        val selected =
-                            index + 1 == selectedRows
+                        selectedRows =
+                            row
 
-                        item.setTextColor(
-                            if (selected)
-                                Color.WHITE
-                            else
-                                Color.DKGRAY
-                        )
-
-                        item.background =
-                            roundedBackground(
-                                if (selected)
-                                    Color.rgb(55, 95, 220)
-                                else
-                                    Color.rgb(240, 240, 240),
-                                dp(context, 12)
-                            )
+                        updateRowButtons()
                     }
                 }
-            }
 
-            rowButtons.add(button)
+            rowButtons.add(
+                rowButton
+            )
 
-            rowsContainer.addView(
-                button,
+            rowContainer.addView(
+                rowButton,
                 LinearLayout.LayoutParams(
                     0,
-                    dp(context, 48),
+                    dp(context, 44),
                     1f
                 ).apply {
+
                     setMargins(
                         dp(context, 3),
                         dp(context, 8),
+                        dp(context, 3),
+                        dp(context, 10)
+                    )
+                }
+            )
+        }
+
+        root.addView(
+            rowContainer
+        )
+
+        updateRowButtons()
+
+        // ---------------------------------------------------------
+        // BACKGROUND
+        // ---------------------------------------------------------
+
+        root.addView(
+            TextView(context).apply {
+
+                text =
+                    "Background"
+
+                textSize =
+                    15f
+
+                setTextColor(
+                    Color.DKGRAY
+                )
+
+                setPadding(
+                    0,
+                    dp(context, 4),
+                    0,
+                    dp(context, 5)
+                )
+            }
+        )
+
+        val backgroundScroll =
+            HorizontalScrollView(context).apply {
+
+                isHorizontalScrollBarEnabled =
+                    false
+            }
+
+        val backgroundContainer =
+            LinearLayout(context).apply {
+
+                orientation =
+                    LinearLayout.HORIZONTAL
+            }
+
+        val backgroundButtons =
+            ArrayList<TextView>()
+
+        fun updateBackgroundButtons() {
+
+            backgroundButtons.forEachIndexed {
+                index,
+                button ->
+
+                val item =
+                    PassportBackground
+                        .entries[index]
+
+                val selected =
+                    item ==
+                        selectedBg
+
+                button.background =
+                    roundedBackground(
+                        if (selected)
+                            Color.rgb(
+                                220,
+                                235,
+                                255
+                            )
+                        else
+                            Color.rgb(
+                                245,
+                                245,
+                                245
+                            ),
+                        dp(context, 10)
+                    )
+            }
+        }
+
+        PassportBackground.entries.forEach {
+            bgOption ->
+
+            val bgButton =
+                TextView(context).apply {
+
+                    text =
+                        bgOption.title
+
+                    textSize =
+                        13f
+
+                    gravity =
+                        Gravity.CENTER
+
+                    setTextColor(
+                        Color.DKGRAY
+                    )
+
+                    setOnClickListener {
+
+                        selectedBg =
+                            bgOption
+
+                        updateBackgroundButtons()
+                    }
+                }
+
+            backgroundButtons.add(
+                bgButton
+            )
+
+            backgroundContainer.addView(
+                bgButton,
+                LinearLayout.LayoutParams(
+                    dp(context, 105),
+                    dp(context, 46)
+                ).apply {
+
+                    setMargins(
+                        dp(context, 3),
+                        dp(context, 3),
                         dp(context, 3),
                         dp(context, 8)
                     )
@@ -145,162 +358,158 @@ object PassportPhotoConfigDialog {
             )
         }
 
-        root.addView(rowsContainer)
-
-        val marginLabel = TextView(context).apply {
-            text = "Side margin (mm)"
-            textSize = 14f
-            setTextColor(Color.DKGRAY)
-            setPadding(
-                0,
-                dp(context, 12),
-                0,
-                dp(context, 4)
-            )
-        }
-
-        root.addView(marginLabel)
-
-        val marginInput = EditText(context).apply {
-            setText("0.5")
-            inputType =
-                android.text.InputType.TYPE_CLASS_NUMBER or
-                    android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
-        }
+        backgroundScroll.addView(
+            backgroundContainer
+        )
 
         root.addView(
-            marginInput,
+            backgroundScroll,
             LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(context, 50)
+                dp(context, 58)
             )
         )
 
-        val gapLabel = TextView(context).apply {
-            text = "Photo gap (mm)"
-            textSize = 14f
-            setTextColor(Color.DKGRAY)
-            setPadding(
-                0,
-                dp(context, 12),
-                0,
-                dp(context, 4)
-            )
-        }
+        updateBackgroundButtons()
 
-        root.addView(gapLabel)
-
-        val gapInput = EditText(context).apply {
-            setText("0.5")
-            inputType =
-                android.text.InputType.TYPE_CLASS_NUMBER or
-                    android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
-        }
+        // ---------------------------------------------------------
+        // INFO
+        // ---------------------------------------------------------
 
         root.addView(
-            gapInput,
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(context, 50)
-            )
+            TextView(context).apply {
+
+                text =
+                    "Crop → remove background → apply background → generate"
+
+                textSize =
+                    12f
+
+                setTextColor(
+                    Color.GRAY
+                )
+
+                setPadding(
+                    0,
+                    dp(context, 5),
+                    0,
+                    dp(context, 5)
+                )
+            }
         )
 
-        val generate = Button(context).apply {
+        // ---------------------------------------------------------
+        // BUTTONS
+        // ---------------------------------------------------------
 
-            text = "Create Preview"
+        val buttonRow =
+            LinearLayout(context).apply {
 
-            setOnClickListener {
+                orientation =
+                    LinearLayout.HORIZONTAL
 
-                val sideMargin =
-                    marginInput.text
-                        .toString()
-                        .toFloatOrNull()
-                        ?.coerceIn(0f, 20f)
-                        ?: 8f
+                gravity =
+                    Gravity.END
+            }
 
-                val gap =
-                    gapInput.text
-                        .toString()
-                        .toFloatOrNull()
-                        ?.coerceIn(0f, 10f)
-                        ?: 0f
+        val cancelButton =
+            Button(context).apply {
 
-                val source =
-                    BitmapFactory.decodeFile(
-                        imagePath
-                    )
+                text =
+                    "Cancel"
 
-                if (source == null) {
+                setOnClickListener {
+
+                    dialog.dismiss()
+                }
+            }
+
+        val createButton =
+            Button(context)
+
+        createButton.text =
+            "Generate"
+
+        createButton.setOnClickListener {
+
+            createButton.isEnabled =
+                false
+
+            createButton.text =
+                "Processing…"
+
+            activity.lifecycleScope.launch {
+
+                val result =
+                    withContext(
+                        Dispatchers.IO
+                    ) {
+
+                        generateSheet(
+                            context = context,
+                            imagePath = imagePath,
+                            rows = selectedRows,
+                            background = selectedBg
+                        )
+                    }
+
+                createButton.isEnabled =
+                    true
+
+                createButton.text =
+                    "Generate"
+
+                if (result == null) {
 
                     Toast.makeText(
                         context,
-                        "Unable to open image",
+                        "Unable to create passport sheet",
                         Toast.LENGTH_SHORT
                     ).show()
 
-                    return@setOnClickListener
+                    return@launch
                 }
-
-                val photo =
-                    PassportPhotoLayoutEngine
-                        .createPassportPhoto(
-                            source
-                        )
-
-                val sheet =
-                    PassportPhotoLayoutEngine
-                        .createA4Sheet(
-                            photo = photo,
-                            rows = selectedRows,
-                            sideMarginMm = sideMargin,
-                            topMarginMm = 8f,
-                            horizontalGapMm = gap,
-                            verticalGapMm = gap
-                        )
-
-                val file =
-                    DownloadStorageHelper
-                        .getPrivateOutputFile(
-                            context,
-                            "passport_${System.currentTimeMillis()}.png"
-                        )
-
-                FileOutputStream(file).use {
-                    sheet.compress(
-                        android.graphics.Bitmap.CompressFormat.PNG,
-                        100,
-                        it
-                    )
-                }
-
-                source.recycle()
-                photo.recycle()
-                sheet.recycle()
 
                 dialog.dismiss()
 
                 ResultDialog.show(
                     context,
-                    file.absolutePath,
-                    "Passport Photos — A4"
+                    result.absolutePath,
+                    "Passport Photos"
                 )
             }
         }
 
+        buttonRow.addView(
+            cancelButton
+        )
+
+        buttonRow.addView(
+            createButton
+        )
+
         root.addView(
-            generate,
+            buttonRow,
             LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(context, 52)
+                dp(context, 56)
             ).apply {
-                topMargin = dp(context, 16)
+
+                topMargin =
+                    dp(context, 6)
             }
         )
 
-        dialog.setContentView(root)
+        dialog.setContentView(
+            root
+        )
 
         dialog.window?.setBackgroundDrawableResource(
             android.R.color.transparent
+        )
+
+        dialog.setCanceledOnTouchOutside(
+            true
         )
 
         dialog.show()
@@ -315,13 +524,128 @@ object PassportPhotoConfigDialog {
         )
     }
 
+    private suspend fun generateSheet(
+        context: Context,
+        imagePath: String,
+        rows: Int,
+        background: PassportBackground
+    ): File? {
+
+        val source =
+            BitmapFactory.decodeFile(
+                imagePath
+            ) ?: return null
+
+        var foreground: Bitmap? =
+            null
+
+        var processed: Bitmap? =
+            null
+
+        var sheet: Bitmap? =
+            null
+
+        return try {
+
+            foreground =
+                PassportPhotoProcessor
+                    .removeBackground(
+                        source
+                    )
+
+            if (foreground == null) {
+                return null
+            }
+
+            processed =
+                PassportPhotoProcessor
+                    .applyBackground(
+                        foreground,
+                        background
+                    )
+
+            val rowBitmaps =
+                mutableMapOf<Int, Bitmap>()
+
+            /*
+             * "rows" means the selected physical row,
+             * NOT the number of rows to fill.
+             *
+             * Example:
+             * 1 -> photos in row 1
+             * 4 -> photos in row 4
+             * 6 -> photos in row 6
+             *
+             * The rows before it remain empty.
+             */
+            val selectedRowIndex =
+                (rows - 1).coerceIn(0, 5)
+
+            rowBitmaps[selectedRowIndex] =
+                processed
+
+            sheet =
+                PassportPhotoLayoutEngine
+                    .createA4(
+                        rowBitmaps
+                    )
+
+            val directory =
+                File(
+                    context.cacheDir,
+                    "custom_tools"
+                )
+
+            if (!directory.exists()) {
+                directory.mkdirs()
+            }
+
+            val output =
+                File(
+                    directory,
+                    "passport_${System.currentTimeMillis()}.png"
+                )
+
+            FileOutputStream(
+                output
+            ).use { stream ->
+
+                sheet.compress(
+                    Bitmap.CompressFormat.PNG,
+                    100,
+                    stream
+                )
+            }
+
+            output
+
+        } catch (_: Exception) {
+
+            null
+
+        } finally {
+
+            source.recycle()
+
+            foreground?.recycle()
+
+            processed?.recycle()
+
+            sheet?.recycle()
+        }
+    }
+
     private fun roundedBackground(
         color: Int,
         radius: Int
     ): GradientDrawable {
+
         return GradientDrawable().apply {
+
             setColor(color)
-            cornerRadius = radius.toFloat()
+
+            cornerRadius =
+                radius.toFloat()
         }
     }
 
@@ -329,9 +653,12 @@ object PassportPhotoConfigDialog {
         context: Context,
         value: Int
     ): Int {
+
         return (
             value *
-                context.resources.displayMetrics.density
+                context.resources
+                    .displayMetrics
+                    .density
             ).toInt()
     }
 }

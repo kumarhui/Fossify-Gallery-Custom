@@ -1,424 +1,606 @@
 ﻿package org.fossify.gallery.customtools.ui
 
-import org.fossify.gallery.R
-
-import android.content.Context
-import android.graphics.BitmapFactory
-import android.graphics.Color
-import android.graphics.drawable.GradientDrawable
+import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.widget.LinearLayout
-import android.widget.TextView
-import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
-import org.fossify.gallery.customtools.conversion.ImageConverter
-import org.fossify.gallery.customtools.conversion.PdfConverter
-import org.fossify.gallery.customtools.info.ResultInfoHelper
-import org.fossify.gallery.customtools.layout.IdCardLayoutEngine
-import org.fossify.gallery.customtools.layout.PassportPhotoLayoutEngine
-import org.fossify.gallery.customtools.preview.ResultDialog
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.ComposeView
+import androidx.fragment.app.DialogFragment
+import androidx.fragment.app.FragmentActivity
+import org.fossify.gallery.R
+import org.fossify.gallery.customtools.CustomToolRunner
+import org.fossify.gallery.customtools.sharing.JuganuaHelper
 import org.fossify.gallery.customtools.sharing.NokoPrintHelper
 import org.fossify.gallery.customtools.sharing.WhatsAppHelper
-import org.fossify.gallery.customtools.storage.DownloadStorageHelper
-import java.io.FileOutputStream
+import org.fossify.gallery.customtools.preview.ResultDialog
+
+class CustomToolsDialogFragment : DialogFragment() {
+
+    private var imagePath: String = ""
+
+    companion object {
+
+        private const val ARG_IMAGE_PATH = "image_path"
+        private const val TAG = "CustomToolsDialog"
+
+        fun show(
+            activity: FragmentActivity,
+            imagePath: String
+        ) {
+            if (
+                activity.isFinishing ||
+                activity.isDestroyed
+            ) {
+                return
+            }
+
+            val manager = activity.supportFragmentManager
+
+            if (
+                manager.isStateSaved ||
+                manager.findFragmentByTag(TAG) != null
+            ) {
+                return
+            }
+
+            CustomToolsDialogFragment().apply {
+                arguments = Bundle().apply {
+                    putString(
+                        ARG_IMAGE_PATH,
+                        imagePath
+                    )
+                }
+            }.show(manager, TAG)
+        }
+    }
+
+    override fun onCreate(
+        savedInstanceState: Bundle?
+    ) {
+        super.onCreate(savedInstanceState)
+
+        imagePath =
+            arguments
+                ?.getString(ARG_IMAGE_PATH)
+                .orEmpty()
+
+        // IMPORTANT:
+        // Do not call requestFeature() or setStyle()
+        // here. This avoids the previous DialogFragment
+        // "requestFeature() must be called before adding content"
+        // crash.
+    }
+
+    override fun onCreateView(
+        inflater: android.view.LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+
+        return ComposeView(requireContext()).apply {
+
+            setContent {
+
+                MaterialTheme {
+
+                    CustomToolsContent(
+                        onDismiss = {
+                            dismiss()
+                        },
+
+                        onToolClick = { toolId ->
+                            handleToolClick(toolId)
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+
+        dialog?.window?.let { window ->
+
+            window.setBackgroundDrawableResource(
+                android.R.color.transparent
+            )
+
+            window.addFlags(
+                android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND
+            )
+
+            window.setDimAmount(0.55f)
+
+            window.setGravity(
+                Gravity.BOTTOM
+            )
+
+            window.setLayout(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+    }
+
+    private fun handleToolClick(
+        toolId: ToolId
+    ) {
+
+        if (imagePath.isBlank()) {
+            return
+        }
+
+        when (toolId) {
+
+            ToolId.ID_CARD -> {
+
+                val output =
+                    CustomToolRunner.createIdCard(
+                        requireContext(),
+                        imagePath
+                    )
+
+                if (output != null) {
+
+                    dismiss()
+
+                    ResultDialog.show(
+                        requireContext(),
+                        output,
+                        "ID Card"
+                    )
+                }
+            }
+
+            ToolId.PASSPORT_PHOTO -> {
+
+                dismiss()
+
+                PassportPhotoConfigDialog.show(
+                    requireContext(),
+                    imagePath
+                )
+            }
+
+            ToolId.JUGANUA -> {
+
+                val success =
+                    JuganuaHelper.open(
+                        requireContext(),
+                        imagePath
+                    )
+
+                if (success) {
+                    dismiss()
+                }
+            }
+
+            ToolId.CONVERT_IMAGE -> {
+
+                // Open the existing image conversion selector.
+                // This is handled by the conversion dialog/file
+                // that will be connected next.
+                dismiss()
+
+                ImageConversionDialog.show(
+                    requireContext(),
+                    imagePath
+                )
+            }
+
+            ToolId.CONVERT_PDF -> {
+
+                val result =
+                    CustomToolRunner.convertPdf(
+                        requireContext(),
+                        imagePath
+                    )
+
+                if (result.success &&
+                    result.outputPath != null
+                ) {
+
+                    dismiss()
+
+                    ResultDialog.show(
+                        requireContext(),
+                        result.outputPath,
+                        "PDF"
+                    )
+                }
+            }
+
+            ToolId.IMAGE_INFO -> {
+
+                ImageInfoDialog.show(
+                    requireContext(),
+                    imagePath
+                )
+            }
+
+            ToolId.WHATSAPP -> {
+
+                val success =
+                    WhatsAppHelper.share(
+                        requireContext(),
+                        imagePath
+                    )
+
+                if (success) {
+                    dismiss()
+                }
+            }
+
+            ToolId.NOKOPRINT -> {
+
+                val success =
+                    NokoPrintHelper.print(
+                        requireContext(),
+                        imagePath
+                    )
+
+                if (success) {
+                    dismiss()
+                }
+            }
+        }
+    }
+}
 
 object CustomToolsSheet {
 
     fun show(
-        context: Context,
+        context: android.content.Context,
         imagePath: String
     ) {
 
-        val items = listOf(
-
-            CustomToolsItem(
-                ToolId.ID_CARD,
-                "ID Card",
-                "85.6 × 54 mm on A4",
-                R.drawable.ic_tool_id_card
-            ),
-
-            CustomToolsItem(
-                ToolId.PASSPORT_PHOTO,
-                "Passport Photo",
-                "35 × 45 mm • 6 columns",
-                R.drawable.ic_tool_passport
-            ),
-
-            CustomToolsItem(
-                ToolId.A4_LAYOUT,
-                "A4 Layout",
-                "Place image on A4",
-                R.drawable.ic_tool_a4
-            ),
-
-            CustomToolsItem(
-                ToolId.CONVERT_IMAGE,
-                "Convert Image",
-                "JPEG • PNG • WEBP",
-                R.drawable.ic_tool_convert_image
-            ),
-
-            CustomToolsItem(
-                ToolId.CONVERT_PDF,
-                "Convert to PDF",
-                "Create A4 PDF",
-                R.drawable.ic_tool_pdf
-            ),
-
-            CustomToolsItem(
-                ToolId.IMAGE_INFO,
-                "Image Information",
-                "Size • resolution • date",
-                R.drawable.ic_tool_info
-            ),
-
-            CustomToolsItem(
-                ToolId.WHATSAPP,
-                "WhatsApp",
-                "Share image",
-                R.drawable.ic_tool_whatsapp
-            ),
-
-            CustomToolsItem(
-                ToolId.NOKOPRINT,
-                "NokoPrint",
-                "Print with NokoPrint",
-                R.drawable.ic_tool_print
-            )
-        )
-        val dialog =
-            AlertDialog.Builder(context)
-                .setTitle("Custom Tools")
-                .setItems(
-                    items.map {
-                        "${it.title}"
-                    }.toTypedArray()
-                ) { dialog, which ->
-
-                    dialog.dismiss()
-
-                    execute(
-                        context,
-                        items[which].id,
-                        imagePath
-                    )
-                }
-                .create()
-
-        dialog.show()
-    }
-
-    private fun execute(
-        context: Context,
-        tool: ToolId,
-        imagePath: String
-    ) {
-
-        when (tool) {
-
-            ToolId.ID_CARD ->
-                idCard(
-                    context,
-                    imagePath
-                )
-
-            ToolId.PASSPORT_PHOTO ->
-                PassportPhotoConfigDialog.show(
-                    context,
-                    imagePath
-                )
-
-            ToolId.A4_LAYOUT ->
-                a4(
-                    context,
-                    imagePath
-                )
-
-            ToolId.CONVERT_IMAGE ->
-                convertImage(
-                    context,
-                    imagePath
-                )
-
-            ToolId.CONVERT_PDF ->
-                convertPdf(
-                    context,
-                    imagePath
-                )
-
-            ToolId.IMAGE_INFO ->
-                info(
-                    context,
-                    imagePath
-                )
-
-            ToolId.WHATSAPP ->
-                whatsapp(
-                    context,
-                    imagePath
-                )
-
-            ToolId.NOKOPRINT ->
-                nokoPrint(
-                    context,
-                    imagePath
-                )
-        }
-    }
-
-    private fun idCard(
-        context: Context,
-        path: String
-    ) {
-
-        val source =
-            BitmapFactory.decodeFile(path)
+        val activity =
+            context as? FragmentActivity
                 ?: return
 
-        val result =
-            IdCardLayoutEngine.createA4Sheet(
-                source
-            )
-
-        val file =
-            DownloadStorageHelper
-                .getPrivateOutputFile(
-                    context,
-                    "id_card_${System.currentTimeMillis()}.png"
-                )
-
-        FileOutputStream(file).use {
-            result.compress(
-                android.graphics.Bitmap.CompressFormat.PNG,
-                100,
-                it
-            )
-        }
-
-        source.recycle()
-        result.recycle()
-
-        ResultDialog.show(
-            context,
-            file.absolutePath,
-            "ID Card â€” A4"
+        CustomToolsDialogFragment.show(
+            activity,
+            imagePath
         )
     }
-
-    private fun a4(
-        context: Context,
-        path: String
-    ) {
-
-        // A4 Layout currently uses the
-        // image-to-A4 PDF engine.
-        // It stops at ResultDialog.
-        convertPdf(
-            context,
-            path
-        )
-    }
-
-    private fun convertImage(
-        context: Context,
-        path: String
-    ) {
-
-        val formats =
-            arrayOf(
-                "JPEG",
-                "PNG",
-                "WEBP"
-            )
-
-        AlertDialog.Builder(context)
-            .setTitle("Convert Image")
-            .setItems(formats) { _, which ->
-
-                val format =
-                    when (which) {
-                        0 ->
-                            ImageConverter.Format.JPEG
-
-                        1 ->
-                            ImageConverter.Format.PNG
-
-                        else ->
-                            ImageConverter.Format.WEBP
-                    }
-
-                val result =
-                    ImageConverter.convert(
-                        context,
-                        path,
-                        format
-                    )
-
-                if (
-                    result.success &&
-                    result.outputPath != null
-                ) {
-
-                    ResultDialog.show(
-                        context,
-                        result.outputPath,
-                        "Converted Image"
-                    )
-
-                } else {
-
-                    Toast.makeText(
-                        context,
-                        result.error
-                            ?: "Conversion failed",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-            }
-            .show()
-    }
-
-    private fun convertPdf(
-        context: Context,
-        path: String
-    ) {
-
-        val result =
-            PdfConverter.convert(
-                context,
-                path
-            )
-
-        if (
-            result.success &&
-            result.outputPath != null
-        ) {
-
-            ResultDialog.show(
-                context,
-                result.outputPath,
-                "PDF Result"
-            )
-
-        } else {
-
-            Toast.makeText(
-                context,
-                result.error
-                    ?: "PDF conversion failed",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
-    }
-
-    private fun info(
-        context: Context,
-        path: String
-    ) {
-
-        val info =
-            ResultInfoHelper.getInfo(path)
-                ?: return
-
-        AlertDialog.Builder(context)
-            .setTitle(info.name)
-            .setMessage(
-                """
-                Resolution: ${info.width} Ã— ${info.height}
-
-                Size: ${formatSize(info.size)}
-
-                Modified: ${info.modified}
-
-                Path:
-                ${info.path}
-                """.trimIndent()
-            )
-            .setPositiveButton(
-                "OK",
-                null
-            )
-            .show()
-    }
-
-    private fun whatsapp(
-        context: Context,
-        path: String
-    ) {
-
-        if (
-            !WhatsAppHelper.share(
-                context,
-                path
-            )
-        ) {
-
-            Toast.makeText(
-                context,
-                "WhatsApp is not installed",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
-    }
-
-    private fun nokoPrint(
-        context: Context,
-        path: String
-    ) {
-
-        if (
-            !NokoPrintHelper.print(
-                context,
-                path
-            )
-        ) {
-
-            Toast.makeText(
-                context,
-                "NokoPrint is not installed",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
-    }
-
-    private fun formatSize(
-        size: Long
-    ): String {
-
-        return when {
-
-            size < 1024 ->
-                "$size B"
-
-            size < 1024 * 1024 ->
-                "%.1f KB".format(
-                    size / 1024f
-                )
-
-            else ->
-                "%.1f MB".format(
-                    size /
-                        (1024f * 1024f)
-                )
-        }
-    }
-
-    private fun dp(
-        context: Context,
-        value: Int
-    ): Int =
-        (
-            value *
-                context.resources.displayMetrics.density
-            ).toInt()
 }
 
+@Composable
+private fun CustomToolsContent(
+    onDismiss: () -> Unit,
+    onToolClick: (ToolId) -> Unit
+) {
 
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
 
+        shape = RoundedCornerShape(
+            topStart = 28.dp,
+            topEnd = 28.dp
+        ),
 
+        tonalElevation = 8.dp,
 
+        shadowElevation = 12.dp
+    ) {
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = 16.dp,
+                    end = 16.dp,
+                    top = 4.dp,
+                    bottom = 18.dp
+                )
+        ) {
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(22.dp),
+
+                contentAlignment = Alignment.Center
+            ) {
+
+                Icon(
+                    imageVector = Icons.Default.DragHandle,
+                    contentDescription = null,
+                    modifier = Modifier.size(26.dp),
+                    tint =
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant
+                )
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        top = 2.dp,
+                        bottom = 12.dp
+                    ),
+
+                verticalAlignment =
+                    Alignment.CenterVertically
+            ) {
+
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+
+                    Text(
+                        text = "Custom Tools",
+                        style =
+                            MaterialTheme
+                                .typography
+                                .titleLarge,
+                        fontWeight =
+                            FontWeight.Bold
+                    )
+
+                    Text(
+                        text = "Choose an action",
+                        style =
+                            MaterialTheme
+                                .typography
+                                .bodySmall,
+                        color =
+                            MaterialTheme
+                                .colorScheme
+                                .onSurfaceVariant
+                    )
+                }
+
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Close",
+
+                    modifier =
+                        Modifier
+                            .size(40.dp)
+                            .clip(
+                                RoundedCornerShape(50)
+                            )
+                            .clickable {
+                                onDismiss()
+                            }
+                            .padding(9.dp)
+                )
+            }
+
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+
+                modifier = Modifier.fillMaxWidth(),
+
+                horizontalArrangement =
+                    Arrangement.spacedBy(10.dp),
+
+                verticalArrangement =
+                    Arrangement.spacedBy(10.dp),
+
+                userScrollEnabled = false
+            ) {
+
+                items(tools) { item ->
+
+                    ToolCard(
+                        item = item,
+
+                        onClick = {
+                            onToolClick(item.id)
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ToolCard(
+    item: CustomToolsItem,
+    onClick: () -> Unit
+) {
+
+    Surface(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(
+                    RoundedCornerShape(16.dp)
+                )
+                .clickable(
+                    onClick = onClick
+                ),
+
+        shape =
+            RoundedCornerShape(16.dp),
+
+        tonalElevation = 2.dp,
+
+        shadowElevation = 1.dp
+    ) {
+
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        horizontal = 12.dp,
+                        vertical = 11.dp
+                    ),
+
+            verticalAlignment =
+                Alignment.CenterVertically
+        ) {
+
+            Box(
+                modifier =
+                    Modifier
+                        .size(42.dp)
+                        .clip(
+                            RoundedCornerShape(12.dp)
+                        )
+                        .background(
+                            MaterialTheme
+                                .colorScheme
+                                .secondaryContainer
+                        ),
+
+                contentAlignment =
+                    Alignment.Center
+            ) {
+
+                Icon(
+                    painter =
+                        painterResource(
+                            item.iconRes
+                        ),
+
+                    contentDescription =
+                        item.title,
+
+                    modifier =
+                        Modifier.size(23.dp),
+
+                    tint =
+                        MaterialTheme
+                            .colorScheme
+                            .onSecondaryContainer
+                )
+            }
+
+            Spacer(
+                modifier = Modifier.size(10.dp)
+            )
+
+            Column(
+                modifier =
+                    Modifier.weight(1f)
+            ) {
+
+                Text(
+                    text = item.title,
+
+                    style =
+                        MaterialTheme
+                            .typography
+                            .titleSmall,
+
+                    fontWeight =
+                        FontWeight.SemiBold
+                )
+
+                Text(
+                    text = item.subtitle,
+
+                    style =
+                        MaterialTheme
+                            .typography
+                            .labelSmall,
+
+                    color =
+                        MaterialTheme
+                            .colorScheme
+                            .onSurfaceVariant,
+
+                    maxLines = 1
+                )
+            }
+        }
+    }
+}
+
+private val tools = listOf(
+
+    CustomToolsItem(
+        ToolId.ID_CARD,
+        "ID Card",
+        "85.6 × 54 mm on A4",
+        R.drawable.ic_tool_id_card
+    ),
+
+    CustomToolsItem(
+        ToolId.PASSPORT_PHOTO,
+        "Passport Photo",
+        "30 × 40 mm • 6 columns",
+        R.drawable.ic_tool_passport
+    ),
+
+    CustomToolsItem(
+        ToolId.JUGANUA,
+        "Open in Juganua",
+        "Open image in Juganua",
+        R.drawable.ic_tool_juganua
+    ),
+
+    CustomToolsItem(
+        ToolId.CONVERT_IMAGE,
+        "Convert Image",
+        "JPEG • PNG • WEBP",
+        R.drawable.ic_tool_convert_image
+    ),
+
+    CustomToolsItem(
+        ToolId.CONVERT_PDF,
+        "Convert to PDF",
+        "Create PDF",
+        R.drawable.ic_tool_pdf
+    ),
+
+    CustomToolsItem(
+        ToolId.IMAGE_INFO,
+        "Information",
+        "Size • resolution • date",
+        R.drawable.ic_tool_info
+    ),
+
+    CustomToolsItem(
+        ToolId.WHATSAPP,
+        "WhatsApp",
+        "Share image",
+        R.drawable.ic_tool_whatsapp
+    ),
+
+    CustomToolsItem(
+        ToolId.NOKOPRINT,
+        "NokoPrint",
+        "Print image",
+        R.drawable.ic_tool_print
+    )
+)
 
 

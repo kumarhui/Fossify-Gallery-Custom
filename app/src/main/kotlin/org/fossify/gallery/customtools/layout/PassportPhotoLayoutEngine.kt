@@ -4,209 +4,210 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
-import android.graphics.Rect
+import android.graphics.RectF
 
 object PassportPhotoLayoutEngine {
 
+    private const val DPI = 300f
+
+    /*
+     * Physical passport photo size.
+     */
     const val PHOTO_WIDTH_MM = 30f
     const val PHOTO_HEIGHT_MM = 40f
-    const val COLUMNS = 6
 
-    fun createPassportPhoto(source: Bitmap): Bitmap {
-        val targetRatio = PHOTO_WIDTH_MM / PHOTO_HEIGHT_MM
-        val sourceRatio = source.width.toFloat() / source.height
+    /*
+     * Space between photos.
+     */
+    const val PHOTO_GAP_MM = 2f
 
-        val crop = if (sourceRatio > targetRatio) {
-            val cropWidth = (source.height * targetRatio).toInt()
+    /*
+     * Minimum white space at page edges.
+     */
+    const val SIDE_MARGIN_MM = 1f
 
-            Bitmap.createBitmap(
-                source,
-                (source.width - cropWidth) / 2,
-                0,
-                cropWidth,
-                source.height
-            )
-        } else {
-            val cropHeight = (source.width / targetRatio).toInt()
+    /*
+     * Black passport-photo border.
+     */
+    const val BORDER_MM = 0.5f
 
-            Bitmap.createBitmap(
-                source,
-                0,
-                (source.height - cropHeight) / 2,
-                source.width,
-                cropHeight
-            )
-        }
+    const val COPIES_PER_ROW = 6
+    const val MAX_ROWS = 6
 
-        val width = A4Page.mmToPx(PHOTO_WIDTH_MM).toInt()
-        val height = A4Page.mmToPx(PHOTO_HEIGHT_MM).toInt()
-
-        return Bitmap.createBitmap(
-            width,
-            height,
-            Bitmap.Config.ARGB_8888
-        ).also { output ->
-
-            Canvas(output).drawBitmap(
-                crop,
-                null,
-                Rect(0, 0, width, height),
-                Paint(
-                    Paint.ANTI_ALIAS_FLAG or
-                        Paint.FILTER_BITMAP_FLAG
-                )
-            )
-
-            if (crop !== source) {
-                crop.recycle()
-            }
-        }
+    private fun mmToPx(mm: Float): Int {
+        return (mm * DPI / 25.4f).toInt()
     }
 
-    fun createA4Sheet(
-        photo: Bitmap,
-        rows: Int = 1,
-        sideMarginMm: Float = 0.5f,
-        topMarginMm: Float = 8f,
-        horizontalGapMm: Float = 0.5f,
-        verticalGapMm: Float = 0.5f
+    fun createSheet(
+        rows: Map<Int, Bitmap>,
+        paperWidthMm: Float,
+        paperHeightMm: Float
     ): Bitmap {
 
-        val pageWidth = A4Page.WIDTH_PX
-        val pageHeight = A4Page.HEIGHT_PX
+        val pageWidth =
+            mmToPx(paperWidthMm)
 
-        val result = Bitmap.createBitmap(
-            pageWidth,
-            pageHeight,
-            Bitmap.Config.ARGB_8888
-        )
+        val pageHeight =
+            mmToPx(paperHeightMm)
 
-        val canvas = Canvas(result)
+        val sheet =
+            Bitmap.createBitmap(
+                pageWidth,
+                pageHeight,
+                Bitmap.Config.ARGB_8888
+            )
+
+        val canvas =
+            Canvas(sheet)
+
         canvas.drawColor(Color.WHITE)
 
-        /*
-         * IMPORTANT:
-         *
-         * Photo size remains FIXED:
-         *
-         * 30 × 40 mm
-         *
-         * Gap is separate from the photo.
-         */
         val photoWidth =
-            A4Page.mmToPx(PHOTO_WIDTH_MM)
+            mmToPx(PHOTO_WIDTH_MM)
 
         val photoHeight =
-            A4Page.mmToPx(PHOTO_HEIGHT_MM)
+            mmToPx(PHOTO_HEIGHT_MM)
+
+        val gap =
+            mmToPx(PHOTO_GAP_MM)
 
         val sideMargin =
-            A4Page.mmToPx(sideMarginMm)
+            mmToPx(SIDE_MARGIN_MM)
 
-        val horizontalGap =
-            A4Page.mmToPx(horizontalGapMm)
+        val borderWidth =
+            mmToPx(BORDER_MM).toFloat()
 
-        val verticalGap =
-            A4Page.mmToPx(verticalGapMm)
+        val rowHeight =
+            pageHeight.toFloat() / MAX_ROWS
 
-        val topMargin =
-            A4Page.mmToPx(topMarginMm)
-
-        /*
-         * Exact six-column width.
-         *
-         * 6 × 30mm + 5 × 1mm
-         * = 185mm
-         *
-         * Therefore the photos stay exactly
-         * 30mm wide and the 1mm gaps remain.
-         */
-        val gridWidth =
-            COLUMNS * photoWidth +
-                (COLUMNS - 1) * horizontalGap
+        val totalPhotosWidth =
+            COPIES_PER_ROW * photoWidth +
+                (COPIES_PER_ROW - 1) * gap
 
         /*
-         * Center the complete grid on A4.
+         * Center the complete six-photo strip.
+         *
+         * The strip is never allowed to cross
+         * the minimum side-margin safe area.
          */
+        val safeLeft =
+            sideMargin.toFloat()
+
+        val safeRight =
+            pageWidth.toFloat() -
+                sideMargin
+
+        val safeWidth =
+            safeRight - safeLeft
+
         val startX =
-            (pageWidth - gridWidth) / 2f
+            safeLeft +
+                ((safeWidth - totalPhotosWidth) / 2f)
+                    .coerceAtLeast(0f)
 
-        val actualRows =
-            rows.coerceIn(1, 6)
+        val borderPaint =
+            Paint(
+                Paint.ANTI_ALIAS_FLAG
+            ).apply {
 
-        val paint =
+                style =
+                    Paint.Style.STROKE
+
+                strokeWidth =
+                    borderWidth
+
+                color =
+                    Color.BLACK
+            }
+
+        val bitmapPaint =
             Paint(
                 Paint.ANTI_ALIAS_FLAG or
                     Paint.FILTER_BITMAP_FLAG
             )
 
-        /*
-         * Black border.
-         *
-         * 4px = doubled thickness.
-         */
-        val borderPaint =
-            Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                style = Paint.Style.STROKE
-                strokeWidth = 4f
-                color = Color.BLACK
+        rows.forEach { (rowIndex, bitmap) ->
+
+            if (
+                rowIndex !in 0 until MAX_ROWS
+            ) {
+                return@forEach
             }
 
-        for (row in 0 until actualRows) {
-
-            for (column in 0 until COLUMNS) {
-
-                /*
-                 * GAP IS HERE.
-                 *
-                 * Each next photo starts after:
-                 *
-                 * photo width + gap
-                 */
-                val left =
-                    startX +
-                        column *
-                        (photoWidth + horizontalGap)
-
-                val top =
-                    topMargin +
-                        row *
-                        (photoHeight + verticalGap)
-
-                val right =
-                    left + photoWidth
-
-                val bottom =
-                    top + photoHeight
-
-                val rect =
-                    Rect(
-                        left.toInt(),
-                        top.toInt(),
-                        right.toInt(),
-                        bottom.toInt()
-                    )
-
-                /*
-                 * Draw the actual 30 × 40 mm photo.
-                 */
-                canvas.drawBitmap(
-                    photo,
-                    null,
-                    rect,
-                    paint
+            val scaled =
+                Bitmap.createScaledBitmap(
+                    bitmap,
+                    photoWidth,
+                    photoHeight,
+                    true
                 )
 
-                /*
-                 * Black border around each photo.
-                 */
+            /*
+             * Vertically center the exact
+             * 40 mm photo inside its row.
+             */
+            val y =
+                rowIndex * rowHeight +
+                    (
+                        rowHeight -
+                            photoHeight
+                    ) / 2f
+
+            repeat(COPIES_PER_ROW) { index ->
+
+                val x =
+                    startX +
+                        index *
+                        (photoWidth + gap)
+
+                val destination =
+                    RectF(
+                        x,
+                        y,
+                        x + photoWidth,
+                        y + photoHeight
+                    )
+
+                canvas.drawBitmap(
+                    scaled,
+                    null,
+                    destination,
+                    bitmapPaint
+                )
+
                 canvas.drawRect(
-                    rect,
+                    destination,
                     borderPaint
                 )
             }
+
+            if (scaled !== bitmap) {
+                scaled.recycle()
+            }
         }
 
-        return result
+        return sheet
+    }
+
+    fun createA6(
+        rows: Map<Int, Bitmap>
+    ): Bitmap {
+
+        return createSheet(
+            rows = rows,
+            paperWidthMm = 105f,
+            paperHeightMm = 148f
+        )
+    }
+
+    fun createA4(
+        rows: Map<Int, Bitmap>
+    ): Bitmap {
+
+        return createSheet(
+            rows = rows,
+            paperWidthMm = 210f,
+            paperHeightMm = 297f
+        )
     }
 }
-

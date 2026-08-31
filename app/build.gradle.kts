@@ -10,95 +10,201 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-val keystorePropertiesFile: File = rootProject.file("keystore.properties")
-val keystoreProperties = Properties()
+val keystorePropertiesFile =
+    rootProject.file("keystore.properties")
+
+val keystoreProperties =
+    Properties()
+
 if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+    FileInputStream(keystorePropertiesFile).use {
+        keystoreProperties.load(it)
+    }
 }
 
 fun hasSigningVars(): Boolean {
-    return providers.environmentVariable("SIGNING_KEY_ALIAS").orNull != null
-            && providers.environmentVariable("SIGNING_KEY_PASSWORD").orNull != null
-            && providers.environmentVariable("SIGNING_STORE_FILE").orNull != null
-            && providers.environmentVariable("SIGNING_STORE_PASSWORD").orNull != null
-}
-
-base {
-    val versionCode = project.property("VERSION_CODE").toString().toInt()
-    archivesName = "gallery-$versionCode"
+    return providers.environmentVariable("SIGNING_KEY_ALIAS").isPresent &&
+        providers.environmentVariable("SIGNING_KEY_PASSWORD").isPresent &&
+        providers.environmentVariable("SIGNING_STORE_FILE").isPresent &&
+        providers.environmentVariable("SIGNING_STORE_PASSWORD").isPresent
 }
 
 android {
-    buildFeatures {
-        compose = true
-    }
-    compileSdk = project.libs.versions.app.build.compileSDKVersion.get().toInt()
+
+    namespace =
+        project.property("APP_ID").toString()
+
+    compileSdk =
+        project.libs.versions.app.build.compileSDKVersion
+            .get()
+            .toInt()
 
     defaultConfig {
-        applicationId = project.property("APP_ID").toString()
-        minSdk = project.libs.versions.app.build.minimumSDK.get().toInt()
-        targetSdk = project.libs.versions.app.build.targetSDK.get().toInt()
-        versionName = project.property("VERSION_NAME").toString()
-        versionCode = project.property("VERSION_CODE").toString().toInt()
-    }
 
-    signingConfigs {
-        if (keystorePropertiesFile.exists()) {
-            register("release") {
-                keyAlias = keystoreProperties.getProperty("keyAlias")
-                keyPassword = keystoreProperties.getProperty("keyPassword")
-                storeFile = file(keystoreProperties.getProperty("storeFile"))
-                storePassword = keystoreProperties.getProperty("storePassword")
-            }
-        } else if (hasSigningVars()) {
-            register("release") {
-                keyAlias = providers.environmentVariable("SIGNING_KEY_ALIAS").get()
-                keyPassword = providers.environmentVariable("SIGNING_KEY_PASSWORD").get()
-                storeFile = file(providers.environmentVariable("SIGNING_STORE_FILE").get())
-                storePassword = providers.environmentVariable("SIGNING_STORE_PASSWORD").get()
-            }
-        } else {
-            logger.warn("Warning: No signing config found. Build will be unsigned.")
-        }
+        applicationId =
+            project.property("APP_ID").toString()
+
+        minSdk =
+            project.libs.versions.app.build.minimumSDK
+                .get()
+                .toInt()
+
+        targetSdk =
+            project.libs.versions.app.build.targetSDK
+                .get()
+                .toInt()
+
+        versionName =
+            project.property("VERSION_NAME").toString()
+
+        versionCode =
+            project.property("VERSION_CODE")
+                .toString()
+                .toInt()
     }
 
     buildFeatures {
+        compose = true
         viewBinding = true
         buildConfig = true
     }
 
-    buildTypes {
-        debug {
-            applicationIdSuffix = ".debug"
+    signingConfigs {
+
+        if (keystorePropertiesFile.exists()) {
+
+            register("release") {
+
+                keyAlias =
+                    keystoreProperties
+                        .getProperty("keyAlias")
+
+                keyPassword =
+                    keystoreProperties
+                        .getProperty("keyPassword")
+
+                storeFile =
+                    file(
+                        keystoreProperties
+                            .getProperty("storeFile")
+                    )
+
+                storePassword =
+                    keystoreProperties
+                        .getProperty("storePassword")
+            }
+
+        } else if (hasSigningVars()) {
+
+            register("release") {
+
+                keyAlias =
+                    providers
+                        .environmentVariable(
+                            "SIGNING_KEY_ALIAS"
+                        )
+                        .get()
+
+                keyPassword =
+                    providers
+                        .environmentVariable(
+                            "SIGNING_KEY_PASSWORD"
+                        )
+                        .get()
+
+                storeFile =
+                    file(
+                        providers
+                            .environmentVariable(
+                                "SIGNING_STORE_FILE"
+                            )
+                            .get()
+                    )
+
+                storePassword =
+                    providers
+                        .environmentVariable(
+                            "SIGNING_STORE_PASSWORD"
+                        )
+                        .get()
+            }
+
+        } else {
+
+            logger.warn(
+                "Warning: No signing config found. Build will be unsigned."
+            )
         }
+    }
+
+    buildTypes {
+
+        debug {
+            applicationIdSuffix =
+                ".debug"
+        }
+
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
+
+            isMinifyEnabled =
+                true
+
+            isShrinkResources =
+                true
+
             proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
+                getDefaultProguardFile(
+                    "proguard-android-optimize.txt"
+                ),
                 "proguard-rules.pro"
             )
-            if (keystorePropertiesFile.exists() || hasSigningVars()) {
-                signingConfig = signingConfigs.getByName("release")
+
+            if (
+                keystorePropertiesFile.exists() ||
+                hasSigningVars()
+            ) {
+
+                signingConfig =
+                    signingConfigs.getByName(
+                        "release"
+                    )
             }
         }
     }
 
-    flavorDimensions.add("licensing")
+    flavorDimensions.add(
+        "licensing"
+    )
+
     productFlavors {
+
         register("foss")
+
         register("gplay")
     }
 
     sourceSets {
-        getByName("main").java.directories.add("src/main/kotlin")
+
+        getByName("main")
+            .java
+            .directories
+            .add(
+                "src/main/kotlin"
+            )
     }
 
     compileOptions {
+
         val currentJavaVersionFromLibs =
-            JavaVersion.valueOf(libs.versions.app.build.javaVersion.get())
-        sourceCompatibility = currentJavaVersionFromLibs
-        targetCompatibility = currentJavaVersionFromLibs
+            JavaVersion.valueOf(
+                libs.versions.app.build.javaVersion.get()
+            )
+
+        sourceCompatibility =
+            currentJavaVersionFromLibs
+
+        targetCompatibility =
+            currentJavaVersionFromLibs
     }
 
     dependenciesInfo {
@@ -106,89 +212,228 @@ android {
     }
 
     androidResources {
+
         @Suppress("UnstableApiUsage")
         generateLocaleConfig = true
     }
 
-    tasks.withType<KotlinCompile> {
-        compilerOptions.jvmTarget.set(
-            JvmTarget.fromTarget(project.libs.versions.app.build.kotlinJVMTarget.get())
-        )
-    }
-
-    namespace = project.property("APP_ID").toString()
-
     lint {
+
         checkReleaseBuilds = false
+
         abortOnError = true
+
         warningsAsErrors = false
-        baseline = file("lint-baseline.xml")
-        lintConfig = rootProject.file("lint.xml")
+
+        baseline =
+            file("lint-baseline.xml")
+
+        lintConfig =
+            rootProject.file("lint.xml")
     }
 
     packaging {
+
         resources {
-            excludes += "META-INF/library_release.kotlin_module"
+
+            excludes +=
+                "META-INF/library_release.kotlin_module"
         }
     }
 
     bundle {
+
         language {
+
             enableSplit = false
         }
     }
 }
 
-detekt {
-    baseline = file("detekt-baseline.xml")
-    config.setFrom("$rootDir/detekt.yml")
-    buildUponDefaultConfig = true
-    allRules = false
+/*
+ * IMPORTANT:
+ * This must stay OUTSIDE android { }.
+ *
+ * Keeping it here avoids the
+ * "Suspicious receiver type" warning.
+ */
+tasks.withType<KotlinCompile> {
+
+    compilerOptions.jvmTarget.set(
+        JvmTarget.fromTarget(
+            project.libs.versions.app.build.kotlinJVMTarget.get()
+        )
+    )
 }
 
 dependencies {
-    implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.androidx.compose.ui)
-    implementation(libs.androidx.compose.ui.tooling.preview)
-    implementation(libs.androidx.compose.material3)
-    implementation(libs.androidx.compose.material.icons.extended)
-    implementation(libs.androidx.activity.compose)
-    debugImplementation(libs.androidx.compose.ui.tooling)
-    implementation(libs.fossify.commons)
-    implementation(libs.androidx.print)
-    implementation(libs.android.image.cropper)
-    implementation(libs.exif)
-    implementation(libs.android.gif.drawable)
-    implementation(libs.androidx.lifecycle.runtime)
-    implementation(libs.androidx.constraintlayout)
-    implementation(libs.androidx.documentfile)
-    implementation(libs.androidx.media3.exoplayer)
-    implementation(libs.sanselan)
-    implementation(libs.androidphotofilters)
-    implementation(libs.androidsvg.aar)
-    implementation(libs.gestureviews)
-    implementation(libs.subsamplingscaleimageview)
-    implementation(libs.androidx.swiperefreshlayout)
-    implementation(libs.awebp)
-    implementation(libs.apng)
-    implementation(libs.avif)
-    implementation(libs.avif.integration)
-    implementation(libs.jxl.integration)
-    implementation(libs.okio)
-    implementation(libs.picasso) {
-        exclude(group = "com.squareup.okhttp3", module = "okhttp")
+
+    // Fossify
+    implementation(
+        libs.fossify.commons
+    )
+
+    // AndroidX
+    implementation(
+        libs.androidx.print
+    )
+
+    implementation(
+        libs.android.image.cropper
+    )
+
+    implementation(
+        libs.android.gif.drawable
+    )
+
+    implementation(
+        libs.androidx.lifecycle.runtime
+    )
+
+    implementation(
+        libs.androidx.constraintlayout
+    )
+
+    implementation(
+        libs.androidx.documentfile
+    )
+
+    implementation(
+        libs.androidx.media3.exoplayer
+    )
+
+    implementation(
+        libs.androidx.swiperefreshlayout
+    )
+
+    // EXIF
+    implementation(
+        libs.exif
+    )
+
+    // Image processing
+    implementation(
+        libs.androidphotofilters
+    )
+
+    implementation(
+        libs.androidsvg.aar
+    )
+
+    implementation(
+        libs.gestureviews
+    )
+
+    implementation(
+        libs.subsamplingscaleimageview
+    )
+
+    implementation(
+        libs.sanselan
+    )
+
+    implementation(
+        libs.awebp
+    )
+
+    implementation(
+        libs.apng
+    )
+
+    implementation(
+        libs.avif
+    )
+
+    implementation(
+        libs.avif.integration
+    )
+
+    implementation(
+        libs.jxl.integration
+    )
+
+    implementation(
+        libs.okio
+    )
+
+    implementation(
+        libs.picasso
+    ) {
+        exclude(
+            group = "com.squareup.okhttp3",
+            module = "okhttp"
+        )
     }
-    compileOnly(libs.okhttp)
 
-    ksp(libs.glide.compiler)
-    implementation(libs.zjupure.webpdecoder)
+    compileOnly(
+        libs.okhttp
+    )
 
-    implementation(libs.bundles.room)
-    ksp(libs.androidx.room.compiler)
-    detektPlugins(libs.compose.detekt)
+    // WebP
+    implementation(
+        libs.zjupure.webpdecoder
+    )
+
+    // Room
+    implementation(
+        libs.bundles.room
+    )
+
+    // Room compiler
+    ksp(
+        libs.androidx.room.compiler
+    )
+
+    // Glide compiler
+    ksp(
+        libs.glide.compiler
+    )
+
+    // Detekt
+    detektPlugins(
+        libs.compose.detekt
+    )
+
+    // ---------------------------------------------------------
+    // Jetpack Compose
+    // ---------------------------------------------------------
+
+    implementation(
+        platform(
+            libs.androidx.compose.bom
+        )
+    )
+
+    implementation(
+        libs.androidx.compose.ui
+    )
+
+    implementation(
+        libs.androidx.compose.ui.tooling.preview
+    )
+
+    implementation(
+        libs.androidx.compose.material3
+    )
+
+    implementation(
+        libs.androidx.compose.material.icons.extended
+    )
+
+    implementation(
+        libs.androidx.activity.compose
+    )
+
+    debugImplementation(
+        libs.androidx.compose.ui.tooling
+    )
+
+    // ---------------------------------------------------------
+    // Google ML Kit - Subject Segmentation
+    // Used by Passport Photo background removal.
+    // ---------------------------------------------------------
+
+    implementation(
+        libs.mlkit.subject.segmentation
+    )
 }
-
-
-
-
-
