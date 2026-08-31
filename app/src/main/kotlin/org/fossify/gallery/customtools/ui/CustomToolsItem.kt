@@ -1,0 +1,21 @@
+﻿package org.fossify.gallery.customtools.ui
+
+import androidx.annotation.DrawableRes
+
+data class CustomToolsItem(
+    val id: ToolId,
+    val title: String,
+    val subtitle: String,
+    @DrawableRes val iconRes: Int
+)
+
+enum class ToolId {
+    ID_CARD,
+    PASSPORT_PHOTO,
+    A4_LAYOUT,
+    CONVERT_IMAGE,
+    CONVERT_PDF,
+    IMAGE_INFO,
+    WHATSAPP,
+    NOKOPRINT
+}

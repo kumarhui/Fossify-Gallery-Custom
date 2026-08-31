@@ -1,0 +1,46 @@
+@'
+# Android / Gradle
+*.iml
+*.aab
+*.apk
+.gradle/
+build/
+**/build/
+
+# Local Android configuration
+/local.properties
+
+# Android Studio
+/.idea/
+*.ipr
+*.iws
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Android build / tooling
+/captures/
+/.externalNativeBuild/
+/.cxx/
+/.kotlin/
+
+# Signing / secrets
+keystore.jks
+keystore.properties
+*.keystore
+*.jks
+
+# Proprietary SDK licenses
+/app/src/proprietary/assets/pesdk_android_license
+/app/src/proprietary/assets/vesdk_android_license
+
+# Fastlane generated files
+fastlane/fastlane.json
+fastlane/report.xml
+
+# Generated / temporary
+*.log
+*.tmp
+*.hprof
+'@ | Set-Content ".gitignore" -Encoding utf8
