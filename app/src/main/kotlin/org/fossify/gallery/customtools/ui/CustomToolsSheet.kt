@@ -38,6 +38,7 @@ import androidx.fragment.app.DialogFragment
 import androidx.fragment.app.FragmentActivity
 import org.fossify.gallery.R
 import org.fossify.gallery.customtools.CustomToolRunner
+import org.fossify.gallery.customtools.crop.CropImageTool
 import org.fossify.gallery.customtools.sharing.JuganuaHelper
 import org.fossify.gallery.customtools.sharing.NokoPrintHelper
 import org.fossify.gallery.customtools.sharing.WhatsAppHelper
@@ -182,16 +183,12 @@ class CustomToolsDialogFragment : DialogFragment() {
                 }
             }
 
-            ToolId.PASSPORT_PHOTO -> {
-
-                dismiss()
-
-                PassportPhotoConfigDialog.show(
-                    requireContext(),
-                    imagePath
+            ToolId.PASSPORT_PHOTO ->
+                CropImageTool.show(
+                    context = requireContext(),
+                    imagePath = imagePath,
+                    continueToPassport = true
                 )
-            }
-
             ToolId.JUGANUA -> {
 
                 val success =
@@ -205,19 +202,25 @@ class CustomToolsDialogFragment : DialogFragment() {
                 }
             }
 
-            ToolId.CONVERT_IMAGE -> {
+            ToolId.COMPRESS_IMAGE -> {
 
-                // Open the existing image conversion selector.
-                // This is handled by the conversion dialog/file
-                // that will be connected next.
                 dismiss()
 
-                ImageConversionDialog.show(
+                ImageCompressionDialog.show(
                     requireContext(),
                     imagePath
                 )
             }
 
+            ToolId.CROP_IMAGE -> {
+
+                dismiss()
+
+                CropImageTool.show(
+                    requireContext(),
+                    imagePath
+                )
+            }
             ToolId.CONVERT_PDF -> {
 
                 val result =
@@ -568,10 +571,17 @@ private val tools = listOf(
     ),
 
     CustomToolsItem(
-        ToolId.CONVERT_IMAGE,
-        "Convert Image",
-        "JPEG • PNG • WEBP",
-        R.drawable.ic_tool_convert_image
+        ToolId.COMPRESS_IMAGE,
+        "Compress Image",
+        "Reduce image file size",
+        R.drawable.ic_tool_compress
+    ),
+
+    CustomToolsItem(
+        ToolId.CROP_IMAGE,
+        "Crop Image",
+        "Crop and straighten image",
+        R.drawable.ic_tool_crop
     ),
 
     CustomToolsItem(

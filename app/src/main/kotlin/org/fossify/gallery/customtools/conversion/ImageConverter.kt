@@ -83,4 +83,84 @@ object ImageConverter {
             )
         }
     }
+
+    fun compress(
+        context: android.content.Context,
+        inputPath: String,
+        quality: Int
+    ): ConversionResult {
+
+        return try {
+
+            val bitmap =
+                BitmapFactory.decodeFile(
+                    inputPath
+                ) ?: return ConversionResult(
+                    success = false,
+                    error = "Unable to open image"
+                )
+
+            val file =
+                DownloadStorageHelper
+                    .getPrivateOutputFile(
+                        context,
+                        "compressed_${System.currentTimeMillis()}.jpg"
+                    )
+
+            FileOutputStream(file).use { output ->
+
+                bitmap.compress(
+                    Bitmap.CompressFormat.JPEG,
+                    quality.coerceIn(1, 100),
+                    output
+                )
+            }
+
+            bitmap.recycle()
+
+            ConversionResult(
+                success = true,
+                outputPath = file.absolutePath
+            )
+
+        } catch (e: Exception) {
+
+            ConversionResult(
+                success = false,
+                error =
+                    e.localizedMessage
+                        ?: "Image compression failed"
+            )
+        }
+    }
+    fun estimateCompressedSize(
+        inputPath: String,
+        quality: Int
+    ): Long? {
+
+        return try {
+
+            val bitmap =
+                BitmapFactory.decodeFile(
+                    inputPath
+                ) ?: return null
+
+            val stream =
+                java.io.ByteArrayOutputStream()
+
+            bitmap.compress(
+                Bitmap.CompressFormat.JPEG,
+                quality.coerceIn(1, 100),
+                stream
+            )
+
+            bitmap.recycle()
+
+            stream.size().toLong()
+
+        } catch (_: Exception) {
+
+            null
+        }
+    }
 }

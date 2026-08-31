@@ -13,9 +13,11 @@ enum class ToolId {
     ID_CARD,
     PASSPORT_PHOTO,
     JUGANUA,
-    CONVERT_IMAGE,
+    COMPRESS_IMAGE,
+    CROP_IMAGE,
     CONVERT_PDF,
     IMAGE_INFO,
     WHATSAPP,
     NOKOPRINT
 }
+
