@@ -16,8 +16,6 @@ enum class ToolId {
     COMPRESS_IMAGE,
     CROP_IMAGE,
     CONVERT_PDF,
-    IMAGE_INFO,
     WHATSAPP,
     NOKOPRINT
 }
-

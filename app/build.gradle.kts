@@ -436,4 +436,6 @@ dependencies {
     implementation(
         libs.mlkit.subject.segmentation
     )
+
+    implementation("com.github.yalantis:ucrop:2.2.11")
 }

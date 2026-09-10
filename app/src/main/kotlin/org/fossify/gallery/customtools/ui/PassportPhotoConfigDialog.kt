@@ -567,17 +567,6 @@ object PassportPhotoConfigDialog {
             val rowBitmaps =
                 mutableMapOf<Int, Bitmap>()
 
-            /*
-             * "rows" means the selected physical row,
-             * NOT the number of rows to fill.
-             *
-             * Example:
-             * 1 -> photos in row 1
-             * 4 -> photos in row 4
-             * 6 -> photos in row 6
-             *
-             * The rows before it remain empty.
-             */
             val selectedRowIndex =
                 (rows - 1).coerceIn(0, 5)
 
@@ -589,6 +578,8 @@ object PassportPhotoConfigDialog {
                     .createA4(
                         rowBitmaps
                     )
+
+            val finalSheet = sheet ?: return null
 
             val directory =
                 File(
@@ -610,7 +601,7 @@ object PassportPhotoConfigDialog {
                 output
             ).use { stream ->
 
-                sheet.compress(
+                finalSheet.compress(
                     Bitmap.CompressFormat.PNG,
                     100,
                     stream
