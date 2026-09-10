@@ -534,6 +534,8 @@ fun PassportA4Screen(
                                         putExtra(Intent.EXTRA_STREAM, uri)
                                         setPackage("com.noco.print")
                                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        // Ensures NokoPrint gets its own Recents app card
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK)
                                     }
                                     try {
                                         context.startActivity(printIntent)

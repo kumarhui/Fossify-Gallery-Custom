@@ -54,16 +54,6 @@
         tools:replace="android:label">
 
         <activity
-            android:name="org.fossify.gallery.customtools.preview.PrintPreviewActivity"
-            android:exported="false"
-            android:screenOrientation="portrait"
-            android:documentLaunchMode="always"
-            android:launchMode="singleTask"
-            android:taskAffinity="org.fossify.gallery.printpreview"
-            android:theme="@style/Theme.AppCompat.DayNight.NoActionBar" />
-
-
-        <activity
             android:name="org.fossify.gallery.customtools.idcard.IdCardActivity"
             android:exported="false"
             android:screenOrientation="portrait"
